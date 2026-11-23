@@ -15,7 +15,7 @@ type HandlerEvent = {
 };
 type HandlerResponse = { statusCode: number; headers: Record<string, string>; body: string };
 type Handler = (event: HandlerEvent) => Promise<HandlerResponse>;
-import { verifyPasswordAction } from "../../server/routes/verify-password.js";
+import { generateBlogAction, createShopifyDraftAction } from "../../server/services/blog-actions.js";
 import { demoAction } from "../../server/routes/demo.js";
 import { parseDocumentAction } from "../../server/routes/parse-document.js";
 import { generateHTMLAction } from "../../server/routes/generate-html.js";
@@ -25,10 +25,7 @@ import { validateShopifyAction } from "../../server/routes/validate-shopify.js";
 import { diagnoseShopifyAction } from "../../server/routes/diagnose-shopify.js";
 import { uploadImageAction } from "../../server/routes/upload-image.js";
 
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Content-Type": "application/json",
-};
+const JSON_HEADERS = { "Content-Type": "application/json" };
 
 function jsonBody(event: HandlerEvent): unknown {
   if (!event.body) return {};
@@ -46,7 +43,7 @@ function queryFromEvent(event: HandlerEvent): Record<string, string | undefined>
   return Object.fromEntries(Object.entries(q).map(([k, v]) => [k, v ?? undefined]));
 }
 
-/** Path after /api/ e.g. "verify-password" or "products" */
+/** Path after /api/ e.g. "products" */
 function apiPath(event: HandlerEvent): string {
   const path = event.path ?? "";
   const m = path.match(/\/api\/(.*)$/) || path.match(/\/functions\/api\/(.*)$/);
@@ -54,7 +51,7 @@ function apiPath(event: HandlerEvent): string {
 }
 
 function send(statusCode: number, body: object): HandlerResponse {
-  return { statusCode, headers: CORS, body: JSON.stringify(body) };
+  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
 }
 
 async function parseMultipart(event: HandlerEvent): Promise<{ file: { buffer: Buffer; mimetype: string; originalname: string } | null; keyword: string }> {
@@ -109,22 +106,18 @@ export const handler: Handler = async (event: HandlerEvent): Promise<HandlerResp
         const r = await diagnoseShopifyAction();
         return send(r.statusCode, r.body as object);
       }
-      if (path === "env-check") {
-        return send(200, {
-          SHOPIFY_SHOP: process.env.SHOPIFY_SHOP || "NOT SET",
-          SHOPIFY_ADMIN_ACCESS_TOKEN: process.env.SHOPIFY_ADMIN_ACCESS_TOKEN ? "***SET***" : "NOT SET",
-          SHOPIFY_API_VERSION: process.env.SHOPIFY_API_VERSION || "NOT SET",
-          BLOG_ID: process.env.BLOG_ID || "NOT SET",
-          APP_PASSWORD: process.env.APP_PASSWORD ? "***SET***" : "NOT SET",
-        });
-      }
+
     }
 
     // POST
     if (method === "POST") {
-      if (path === "verify-password") {
-        const r = await verifyPasswordAction(jsonBody(event));
-        return send(r.statusCode, r.body as object);
+      if (path === "generate-blog" || path === "create-shopify-draft") {
+        const size = event.body ? Buffer.byteLength(event.body, event.isBase64Encoded ? "base64" : "utf8") : 0;
+        if (size > 256 * 1024) return send(413, { success: false, error: "Request body is too large" });
+        const r = path === "generate-blog"
+          ? await generateBlogAction(jsonBody(event))
+          : await createShopifyDraftAction(jsonBody(event));
+        return send(r.statusCode, r.body);
       }
       if (path === "parse-document") {
         const r = await parseDocumentAction(jsonBody(event));
@@ -156,6 +149,6 @@ export const handler: Handler = async (event: HandlerEvent): Promise<HandlerResp
     return send(404, { error: "Not found", path, method });
   } catch (err) {
     console.error("API error:", err);
-    return send(500, { error: "Internal server error", details: err instanceof Error ? err.message : String(err) });
+    return send(500, { success: false, error: "Internal server error" });
   }
 };

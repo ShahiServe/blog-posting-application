@@ -1,4 +1,5 @@
 import { RequestHandler } from "express";
+import { isValidShopifyHost } from "../services/blog-actions.js";
 
 export type ActionResult = { statusCode: number; body: object };
 
@@ -20,7 +21,7 @@ export async function diagnoseShopifyAction(): Promise<ActionResult> {
 
     diagnostics.environment = {
       SHOPIFY_SHOP: shopName ? `✓ Set (${shopName})` : "✗ NOT SET",
-      SHOPIFY_ADMIN_ACCESS_TOKEN: accessToken ? `✓ Set (length: ${accessToken.length})` : "✗ NOT SET",
+      SHOPIFY_ADMIN_ACCESS_TOKEN: accessToken ? "✓ Set" : "✗ NOT SET",
       SHOPIFY_API_VERSION: apiVersion,
       BLOG_ID: blogId ? `✓ Set (${blogId})` : "Not set (will be fetched)",
     };
@@ -28,7 +29,7 @@ export async function diagnoseShopifyAction(): Promise<ActionResult> {
     // Validate credentials format
     if (!shopName) {
       diagnostics.issues.push("SHOPIFY_SHOP environment variable is not set");
-    } else if (!shopName.includes("myshopify.com")) {
+    } else if (!isValidShopifyHost(shopName)) {
       diagnostics.issues.push(`SHOPIFY_SHOP format may be incorrect: "${shopName}". Expected format: "myshop.myshopify.com"`);
     }
 
@@ -38,8 +39,10 @@ export async function diagnoseShopifyAction(): Promise<ActionResult> {
       diagnostics.issues.push(`SHOPIFY_ADMIN_ACCESS_TOKEN seems too short (${accessToken.length} chars). Access tokens are typically longer.`);
     }
 
-    // Try to validate connection if we have the basic credentials
-    if (shopName && accessToken) {
+    if (!/^\d{4}-\d{2}$/.test(apiVersion)) diagnostics.issues.push("Invalid Shopify API version");
+
+    // Do not send credentials to an untrusted destination.
+    if (shopName && isValidShopifyHost(shopName) && accessToken && /^\d{4}-\d{2}$/.test(apiVersion)) {
       try {
         console.log(`[Diagnose] Attempting connection to ${shopName}`);
         const baseUrl = `https://${shopName}/admin/api/${apiVersion}`;
@@ -49,6 +52,7 @@ export async function diagnoseShopifyAction(): Promise<ActionResult> {
           headers: {
             "X-Shopify-Access-Token": accessToken,
           },
+          redirect: "error",
         });
 
         console.log(`[Diagnose] Response status: ${response.status}`);

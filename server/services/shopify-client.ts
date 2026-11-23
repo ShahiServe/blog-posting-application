@@ -3,6 +3,8 @@
  * Handles publishing blog posts to Shopify
  */
 
+import { isValidShopifyHost } from "./blog-actions.js";
+
 interface ShopifyArticleInput {
   title: string;
   bodyHtml: string;
@@ -31,6 +33,9 @@ export class ShopifyClient {
     this.shopName = process.env.SHOPIFY_SHOP || "";
     this.accessToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN || "";
     this.apiVersion = process.env.SHOPIFY_API_VERSION || "2025-01";
+    if (!isValidShopifyHost(this.shopName) || !/^\d{4}-\d{2}$/.test(this.apiVersion)) {
+      throw new Error("Invalid Shopify configuration");
+    }
     this.baseUrl = `https://${this.shopName}/admin/api/${this.apiVersion}`;
   }
 
@@ -91,7 +96,7 @@ export class ShopifyClient {
       title: article.title,
       body_html: article.bodyHtml,
       author: article.author || "Blog Generator",
-      published_at: article.publishedAt || new Date().toISOString(),
+      published: false,
       tags: article.tags?.join(",") || "",
     };
 
@@ -142,6 +147,7 @@ export class ShopifyClient {
         "X-Shopify-Access-Token": this.accessToken,
       },
       body: JSON.stringify({ article: articleData }),
+      redirect: "error",
     });
 
     const responseData = await response.json() as any;

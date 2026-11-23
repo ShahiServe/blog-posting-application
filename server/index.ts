@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import path from "path";
 import express from "express";
-import cors from "cors";
+
 import multer from "multer";
 
 // Load environment variables from .env file.
@@ -47,7 +47,7 @@ import { handleParseDocument } from "./routes/parse-document.js";
 import { handleGenerateHTML } from "./routes/generate-html.js";
 import { handlePublishShopify } from "./routes/publish-shopify.js";
 import { handleUploadImage } from "./routes/upload-image.js";
-import { handleVerifyPassword } from "./routes/verify-password.js";
+import { generateBlogAction, createShopifyDraftAction } from "./services/blog-actions.js";
 import { handleGetProducts } from "./routes/get-products.js";
 import { handleValidateShopify } from "./routes/validate-shopify.js";
 import { handleDiagnoseShopify } from "./routes/diagnose-shopify.js";
@@ -72,7 +72,7 @@ export function createServer() {
   const app = express();
 
   // Middleware
-  app.use(cors());
+
   // Workaround for serverless-http + Express 5: body arrives as a Buffer and socket is not
   // readable, so express.json() never runs. Force readable so body-parser runs (see
   // https://github.com/dougmoscrop/serverless-http/issues/274).
@@ -82,7 +82,7 @@ export function createServer() {
     }
     next();
   });
-  app.use(express.json());
+  app.use(express.json({ limit: "256kb" }));
   app.use(express.urlencoded({ extended: true }));
 
   // Example API routes
@@ -91,12 +91,18 @@ export function createServer() {
     res.json({ message: ping });
   });
 
-  // Authentication routes
-  app.post("/api/verify-password", handleVerifyPassword);
 
   app.get("/api/demo", handleDemo);
 
   // Blog generator routes
+  app.post("/api/generate-blog", async (req, res) => {
+    const result = await generateBlogAction(req.body);
+    res.status(result.statusCode).json(result.body);
+  });
+  app.post("/api/create-shopify-draft", async (req, res) => {
+    const result = await createShopifyDraftAction(req.body);
+    res.status(result.statusCode).json(result.body);
+  });
   app.post("/api/parse-document", handleParseDocument);
   app.post("/api/generate-html", handleGenerateHTML);
   app.post("/api/publish-shopify", handlePublishShopify);
@@ -107,29 +113,15 @@ export function createServer() {
   // Image upload route
   app.post("/api/upload-image", upload.single("file"), handleUploadImage);
 
-  // Debug endpoint to check environment variables
-  app.get("/api/env-check", (_req, res) => {
-    res.json({
-      SHOPIFY_SHOP: process.env.SHOPIFY_SHOP || "NOT SET",
-      SHOPIFY_ADMIN_ACCESS_TOKEN: process.env.SHOPIFY_ADMIN_ACCESS_TOKEN ? "***SET***" : "NOT SET",
-      SHOPIFY_API_VERSION: process.env.SHOPIFY_API_VERSION || "NOT SET",
-      BLOG_ID: process.env.BLOG_ID || "NOT SET",
-      APP_PASSWORD: process.env.APP_PASSWORD ? "***SET***" : "NOT SET",
-    });
-  });
 
   // Error handling middleware - must be last
   app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error("Unhandled error:", err);
 
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal server error";
-
     res.status(status).json({
       success: false,
-      error: message,
-      details: process.env.NODE_ENV === "production" ? undefined : err.stack,
-      code: "INTERNAL_SERVER_ERROR",
+      error: status === 413 ? "Request body is too large" : status === 400 ? "Invalid request body" : "Internal server error",
     });
   });
 

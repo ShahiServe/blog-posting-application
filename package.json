@@ -26,6 +26,7 @@
     "express": "^5.1.0",
     "mammoth": "^1.11.0",
     "multer": "^2.0.2",
+    "sanitize-html": "^2.18.2",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -69,6 +70,7 @@
     "@types/node": "^24.2.1",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
+    "@types/sanitize-html": "^2.16.2",
     "@types/three": "^0.176.0",
     "@vitejs/plugin-react-swc": "^4.0.0",
     "autoprefixer": "^10.4.21",

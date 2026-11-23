@@ -26,13 +26,15 @@ describe("blog generation", () => {
     expect((await generateBlogAction({ ...generation, instructions: "x".repeat(4001) })).statusCode).toBe(400);
     expect(fetch).not.toHaveBeenCalled();
   });
-  it("requests JSON and validates the result", async () => {
+  it("uses the configured model and validates JSON output", async () => {
+    vi.stubEnv("GOOGLE_AI_MODEL", "test-model");
     const fetch = vi.fn().mockResolvedValue(json({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: JSON.stringify(blog) }] } }] }));
     vi.stubGlobal("fetch", fetch);
     expect(await generateBlogAction(generation)).toEqual({ statusCode: 200, body: { success: true, blog } });
     const [url, options] = fetch.mock.calls[0];
+    expect(url).toContain("test-model:generateContent");
     expect(url).not.toContain("google-secret");
-    expect(options.headers["x-goog-api-key"]).toBe("google-secret");
+    expect(new Headers(options.headers).get("x-goog-api-key")).toBe("google-secret");
     expect(JSON.parse(options.body).generationConfig.responseMimeType).toBe("application/json");
     fetch.mockResolvedValueOnce(json({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: JSON.stringify({ ...blog, bodyHtml: 1 }) }] } }] }));
     expect((await generateBlogAction(generation)).statusCode).toBe(502);

@@ -222,7 +222,7 @@ export const handlePublishShopify: RequestHandler = async (req, res) => {
         title,
         bodyHtml: "", // Keep article body empty - content goes only to metafield
         author: author || "Blog Generator",
-        publishedAt: publicationDate || new Date().toISOString(),
+        // Dates are intentionally ignored: legacy creation is always a draft.
         tags: tags || [],
         image: featuredImageUrl ? { src: featuredImageUrl } : undefined,
       });
@@ -330,7 +330,7 @@ export const handlePublishShopify: RequestHandler = async (req, res) => {
     console.log("=== Publication complete ===");
     res.json({
       success: true,
-      message: "Article published to Shopify successfully",
+      message: "Draft article created in Shopify successfully",
       articleId,
       metadata: parsed.metadata,
       featuredImageIncluded: !!featuredImageUrl,

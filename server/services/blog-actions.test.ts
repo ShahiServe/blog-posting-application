@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "@google/genai";
 import { createShopifyDraftAction, generateBlogAction, isValidShopifyHost } from "./blog-actions.js";
 import { ShopifyClient } from "./shopify-client.js";
 import { handler } from "../../netlify/functions/api.js";
@@ -39,7 +40,21 @@ describe("blog generation", () => {
     fetch.mockResolvedValueOnce(json({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: JSON.stringify({ ...blog, bodyHtml: 1 }) }] } }] }));
     expect((await generateBlogAction(generation)).statusCode).toBe(502);
   });
-  it("does not expose upstream errors or credentials", async () => {
+  it("defaults to an available Gemini model", async () => {
+    vi.stubEnv("GOOGLE_AI_MODEL", "");
+    const fetch = vi.fn().mockResolvedValue(json({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: JSON.stringify(blog) }] } }] }));
+    vi.stubGlobal("fetch", fetch);
+    expect((await generateBlogAction(generation)).statusCode).toBe(200);
+    expect(fetch.mock.calls[0][0]).toContain("gemini-3.6-flash:generateContent");
+  });
+  it("explains temporary provider unavailability without exposing credentials", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new ApiError({ status: 503, message: "google-secret" })));
+    const result = await generateBlogAction(generation);
+    expect(result.statusCode).toBe(503);
+    expect(JSON.stringify(result)).toContain("temporarily busy");
+    expect(JSON.stringify(result)).not.toContain("google-secret");
+  });
+  it("does not expose unexpected upstream errors or credentials", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("google-secret")));
     const result = await generateBlogAction(generation);
     expect(result.statusCode).toBe(502);

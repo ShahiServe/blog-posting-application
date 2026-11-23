@@ -69,7 +69,7 @@ export default function Index() {
 
   return <div className="app-shell">
     <aside className="sidebar">
-      <Link to="/" className="brand"><span className="brand-mark"><Sparkles size={19} /></span><span>shahi<span className="brand-accent">studio</span><small>CONTENT WORKSPACE</small></span></Link>
+      <Link to="/" className="brand" aria-label="ShahiServe content workspace"><img src="https://cdn.builder.io/api/v1/image/assets%2F85cbe92b2833415c824c079ba54e5ab2%2Fcb2631b5d7a24f8ba095c2353bbd458c?format=webp&width=800&height=1200" alt="Shahi Serve" /></Link>
       <div className="workspace-label">WORKSPACE</div>
       <nav className="side-nav" aria-label="Main navigation">
         <a className="nav-item active" href="#workspace"><LayoutDashboard size={18} /> Overview <ChevronRight size={15} className="nav-end" /></a>

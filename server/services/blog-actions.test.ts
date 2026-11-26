@@ -9,7 +9,10 @@ const blog = {
   title: "A title", metaTitle: "SEO title", metaDescription: "A description", slug: "a-title",
   excerpt: "An excerpt", keywords: "one, two", bodyHtml: "<h2>Introduction</h2><p>Text</p>",
 };
-const generation = { topic: "A topic", keywords: "one, two", audience: "Readers", instructions: "" };
+const generation = {
+  topic: "A topic", primaryKeyword: "primary", secondaryKeywords: "one, two", longTailKeywords: "long tail phrase",
+  targetAudience: "Readers", metaTitle: "SEO title", metaDescription: "A description", instructions: "",
+};
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { "Content-Type": "application/json" } });
 
 beforeEach(() => {

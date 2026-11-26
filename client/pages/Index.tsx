@@ -13,7 +13,8 @@ const storageKey = "shahiserve-blog-workspace";
 function readSaved(): { brief: Brief; blog: Blog } {
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
-    return { brief: { ...emptyBrief, ...saved?.brief }, blog: { ...emptyBlog, ...saved?.blog } };
+    const savedBrief = Object.entries(saved?.brief ?? {}).filter(([field]) => field in emptyBrief);
+    return { brief: { ...emptyBrief, ...Object.fromEntries(savedBrief) }, blog: { ...emptyBlog, ...saved?.blog } };
   } catch { return { brief: emptyBrief, blog: emptyBlog }; }
 }
 
